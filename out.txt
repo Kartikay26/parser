@@ -1,5 +1,21 @@
-<Grammar G (E)>
-	E : (1) E -> E + T | (2) E -> T
-	T : (3) T -> T * F | (4) T -> F
-	F : (5) F -> ( E ) | (6) F -> id
+<Grammar G (S)>
+	Start : (0) Start -> S
+	S : (1) S -> B B
+	B : (2) B -> a B | (3) B -> c
+
+<ItemSet #0>
+	(0) Start -> . S
+	(1) S -> . B B
+	(2) B -> . a B
+	(3) B -> . c
+
+[(1) S -> B . B]
+<ItemSet #1>
+	(1) S -> B . B
+	(2) B -> . a B
+	(3) B -> . c
+
+[(1) S -> B B . ]
+<ItemSet #2>
+	(1) S -> B B . 
 

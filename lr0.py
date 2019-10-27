@@ -130,10 +130,10 @@ class LR0_ItemSet():
 		return s
 
 	def __hash__(self):
-		return hash(self.items)
+		return hash(frozenset(self.items))
 
 	def __eq__(self, other):
-		return self.items == other.items
+		return frozenset(self.items) == frozenset(other.items)
 
 def apply_symbol(itemset: LR0_ItemSet, sym: Symbol) -> LR0_ItemSet:
 	new_item_list = []
@@ -159,7 +159,7 @@ def construct_canonical_sets(g: Grammar):
 			for sym in applicable_symbols:
 				iset_new = apply_symbol(iset, sym)
 				if (len(iset_new.items) > 0 and
-						iset_new not in canonical_item_sets):
+						iset_new not in canonical_item_sets + freshly_added):
 					freshly_added += [iset_new]
 		new_sets = freshly_added
 	for i, iset in enumerate(canonical_item_sets):
@@ -171,9 +171,7 @@ def construct_goto(g: Grammar, canonical_sets):
 	for i in range(len(canonical_sets)):
 		for sym in g.nonTerminals:
 			new_set = apply_symbol(canonical_sets[i], sym)
-			if len(new_set.items) == 0:
-				gotos[(i, sym)] = -1 # error
-			else:
+			if new_set in canonical_sets:
 				j = canonical_sets.index(new_set)
 				gotos[(i, sym)] = j
 	return gotos
@@ -181,28 +179,52 @@ def construct_goto(g: Grammar, canonical_sets):
 def construct_actions(g: Grammar, canonical_sets):
 	actions = {}
 	for i in range(len(canonical_sets)):
-		for sym in g.terminals:
-			new_set = apply_symbol(canonical_sets[i], sym)
-			if len(new_set.items) == 0:
-				actions[(i, sym)] = -1 # error
-			elif any(item.dotAtEnd for item in new_set.items):
-				actions[(i, sym)] = ("reduce", "?")
+		if (len(canonical_sets[i].items) == 1
+				 and canonical_sets[i].items[0].dotAtEnd):
+			if canonical_sets[i].items[0].p.num == 0:
+				actions[(i, Symbol("$"))] = ("accept",)
 			else:
-				j = canonical_sets.index(new_set)
-				actions[(i, sym)] = ("shift", j)
+				for sym in g.terminals:
+					actions[(i, sym)] = ("reduce", canonical_sets[i].items[0].p.num)
+		else:
+			if any(item.dotAtEnd for item in canonical_sets[i].items):
+				raise RuntimeError("Given grammar has shift-reduce conflict in %s" % canonical_sets[i])
+			for sym in g.terminals:
+				new_set = apply_symbol(canonical_sets[i], sym)
+				if new_set in canonical_sets:
+					j = canonical_sets.index(new_set)
+					actions[(i, sym)] = ("shift", j)
 	return actions
 
+def parse(tokens, gotos, actions):
+	pass
+
 def main():
+	
 	g = Grammar("grammar.txt", "S")
 	print(g)
+	
 	canonical_sets = construct_canonical_sets(g)
 	gotos = construct_goto(g, canonical_sets)
 	actions = construct_actions(g, canonical_sets)
+
+	print("Item Sets:")
+	for iset in canonical_sets:
+		print(iset)
+	print()
+	
 	print("Goto:")
 	pprint(gotos)
 	print()
+	
 	print("Actions:")
 	pprint(actions)
+	print()
+
+	tokens = input().split()
+	tokens.append("$")
+	tokens = [Symbol(t) for t in tokens]
+	pprint(tokens)
 
 if __name__ == '__main__':
 	main()

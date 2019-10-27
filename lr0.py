@@ -8,6 +8,7 @@ class Symbol():
         self.s = s
         self.isNonTerminal = s[0].isupper()
         self.isTerminal = not self.isNonTerminal
+        self.children = []
 
     def __repr__(self):
         return f"{self.s}"
@@ -239,12 +240,15 @@ def parse(tokens, gotos, actions, g: Grammar):
                 prod_num = action[1]
                 prod = g.productionsList[prod_num]
                 next_sym = prod.sym
+                next_sym.children = []
                 remove_syms = prod.prod[:]
                 while len(remove_syms) > 0:
                     assert symbol_stack[-1] == remove_syms[-1]
+                    next_sym.children.append(symbol_stack[-1])
                     symbol_stack.pop()
                     remove_syms.pop()
                     state_stack.pop()
+                next_sym.children = list(reversed(next_sym.children))
                 state = state_stack[-1]
                 assert (state, next_sym) in gotos
                 state = gotos[(state, next_sym)]
@@ -252,7 +256,14 @@ def parse(tokens, gotos, actions, g: Grammar):
                 symbol_stack.append(next_sym)
         else:
             raise RuntimeError("Syntax error at input position: %d" % dot)
+    print()
+    return symbol_stack[0]
 
+def print_tree(p, d = 0):
+    print("|\t"*d + f"{p}")
+    if len(p.children) > 0:
+        for ch in p.children:
+            print_tree(ch, d+1)
 
 def main():
 
@@ -280,7 +291,9 @@ def main():
     tokens.append("$")
     tokens = [Symbol(t) for t in tokens]
 
-    parse(tokens, gotos, actions, g)
+    p_tree = parse(tokens, gotos, actions, g)
+    
+    print_tree(p_tree)
 
 
 if __name__ == '__main__':

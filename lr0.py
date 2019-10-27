@@ -68,6 +68,7 @@ class Grammar():
 					self.terminals.append(s)
 				if s.isNonTerminal and s not in self.nonTerminals:
 					self.nonTerminals.append(s)
+		self.terminals.append(Symbol("$"))
 	
 	def __repr__(self):
 		ans = f"<Grammar G ({self.startSymbol})>\n"
@@ -196,8 +197,47 @@ def construct_actions(g: Grammar, canonical_sets):
 					actions[(i, sym)] = ("shift", j)
 	return actions
 
-def parse(tokens, gotos, actions):
-	pass
+def parse(tokens, gotos, actions, g: Grammar):
+	dot = 0
+	symbol_stack = []
+	state_stack = [0]
+	while len(state_stack) > 0:
+		state = state_stack[-1]
+		next_sym = next_sym = tokens[dot]
+		print(":::", symbol_stack + [Symbol(".")] + tokens[dot:])
+		print(state, next_sym)
+		if (state, next_sym) in actions or (state, next_sym) in gotos:
+			action = actions[(state, next_sym)]
+			print(action)
+			if action[0] == "accept":
+				return
+			elif action[0] == "shift":
+				symbol_stack.append(next_sym)
+				state = action[1]
+				state_stack.append(state)
+				dot += 1
+				next_sym = tokens[dot]
+			elif action[0] == "reduce":
+				prod_num = action[1]
+				prod = g.productionsList[prod_num]
+				print(prod)
+				next_sym = prod.sym
+				remove_syms = prod.prod[:]
+				while len(remove_syms) > 0:
+					assert symbol_stack[-1] == remove_syms[-1]
+					symbol_stack.pop()
+					remove_syms.pop()
+					state_stack.pop()
+				state = state_stack[-1]
+				assert (state, next_sym) in gotos
+				state = gotos[(state, next_sym)]
+				state_stack.append(state)
+				symbol_stack.append(next_sym)
+		else:
+			raise RuntimeError("Syntax error at input position: %d" % dot)
+		print(symbol_stack)
+		print(state_stack)
+		print()
 
 def main():
 	
@@ -225,6 +265,9 @@ def main():
 	tokens.append("$")
 	tokens = [Symbol(t) for t in tokens]
 	pprint(tokens)
+	print()
+
+	parse(tokens, gotos, actions, g)
 
 if __name__ == '__main__':
 	main()

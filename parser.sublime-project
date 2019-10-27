@@ -9,7 +9,7 @@
 	[
 		{
 			"name": "Run Python",
-			"shell_cmd": "python3 lr0.py < in.txt &> out.txt"
+			"shell_cmd": "timeout 0.2s bash -c \"python3 lr0.py < in.txt &> out.txt\""
 		},
 	]
 }

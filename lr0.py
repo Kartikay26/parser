@@ -1,3 +1,4 @@
+from copy import copy
 from pprint import pprint
 
 
@@ -239,7 +240,7 @@ def parse(tokens, gotos, actions, g: Grammar):
             elif action[0] == "reduce":
                 prod_num = action[1]
                 prod = g.productionsList[prod_num]
-                next_sym = prod.sym
+                next_sym = copy(prod.sym)
                 next_sym.children = []
                 remove_syms = prod.prod[:]
                 while len(remove_syms) > 0:

@@ -204,11 +204,10 @@ def parse(tokens, gotos, actions, g: Grammar):
 	while len(state_stack) > 0:
 		state = state_stack[-1]
 		next_sym = next_sym = tokens[dot]
-		print(":::", symbol_stack + [Symbol(".")] + tokens[dot:])
-		print(state, next_sym)
+		print(" ".join(str(x) for x in symbol_stack + [Symbol(".")] + tokens[dot:-1]))
 		if (state, next_sym) in actions or (state, next_sym) in gotos:
 			action = actions[(state, next_sym)]
-			print(action)
+			# print(" ".join(str(x) for x in action))
 			if action[0] == "accept":
 				return
 			elif action[0] == "shift":
@@ -220,7 +219,6 @@ def parse(tokens, gotos, actions, g: Grammar):
 			elif action[0] == "reduce":
 				prod_num = action[1]
 				prod = g.productionsList[prod_num]
-				print(prod)
 				next_sym = prod.sym
 				remove_syms = prod.prod[:]
 				while len(remove_syms) > 0:
@@ -235,9 +233,6 @@ def parse(tokens, gotos, actions, g: Grammar):
 				symbol_stack.append(next_sym)
 		else:
 			raise RuntimeError("Syntax error at input position: %d" % dot)
-		print(symbol_stack)
-		print(state_stack)
-		print()
 
 def main():
 	
@@ -264,8 +259,6 @@ def main():
 	tokens = input().split()
 	tokens.append("$")
 	tokens = [Symbol(t) for t in tokens]
-	pprint(tokens)
-	print()
 
 	parse(tokens, gotos, actions, g)
 

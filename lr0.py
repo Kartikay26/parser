@@ -1,4 +1,4 @@
-from copy import copy
+from random import randint
 from pprint import pprint
 
 
@@ -10,6 +10,7 @@ class Symbol():
         self.isNonTerminal = s[0].isupper()
         self.isTerminal = not self.isNonTerminal
         self.children = []
+        self.rand = randint(1,100000)
 
     def __repr__(self):
         return f"{self.s}"
@@ -125,6 +126,8 @@ class LR0_ItemSet():
         while not done:
             for item in self.items:
                 if not item.dotAtEnd and item.next_sym.isNonTerminal:
+                    if item.next_sym not in self.grammar.productionsMap:
+                        continue
                     for prod in self.grammar.productionsMap[item.next_sym]:
                         new_item = LR0_Item(prod, 0)
                         if new_item not in self.items:
@@ -223,8 +226,8 @@ def parse(tokens, gotos, actions, g: Grammar):
     while len(state_stack) > 0:
         state = state_stack[-1]
         next_sym = next_sym = tokens[dot]
-        print(" ".join(str(x)
-                       for x in symbol_stack + [Symbol(".")] + tokens[dot:-1]))
+        # print(" ".join(str(x)
+                       # for x in symbol_stack + [Symbol(".")] + tokens[dot:-1]))
         if (state, next_sym) in actions or (state, next_sym) in gotos:
             action = actions[(state, next_sym)]
             # print(" ".join(str(x) for x in action))
@@ -240,7 +243,7 @@ def parse(tokens, gotos, actions, g: Grammar):
             elif action[0] == "reduce":
                 prod_num = action[1]
                 prod = g.productionsList[prod_num]
-                next_sym = copy(prod.sym)
+                next_sym = Symbol(prod.sym.s)
                 next_sym.children = []
                 remove_syms = prod.prod[:]
                 while len(remove_syms) > 0:
@@ -257,36 +260,43 @@ def parse(tokens, gotos, actions, g: Grammar):
                 symbol_stack.append(next_sym)
         else:
             raise RuntimeError("Syntax error at input position: %d" % dot)
-    print()
+    # print()
     return symbol_stack[0]
 
 def print_tree(p, d = 0):
-    print("|\t"*d + f"{p}")
+    """Prints out the (concrete) parse tree in graphviz dot format"""
+    if d == 0:
+        print("digraph G {")
     if len(p.children) > 0:
         for ch in p.children:
+            print(f"\t{p.rand} [label=\"{p.s}\"];")
+            print(f"\t{ch.rand} [label=\"{ch.s}\"];")
+            print(f"\t{p.rand} -> {ch.rand};")
             print_tree(ch, d+1)
+    if d == 0:
+        print("}")
 
 def main():
 
     g = Grammar("grammar.txt", "S")
-    print(g)
+    # print(g)
 
     canonical_sets = construct_canonical_sets(g)
     gotos = construct_goto(g, canonical_sets)
     actions = construct_actions(g, canonical_sets)
 
-    print("Item Sets:")
-    for iset in canonical_sets:
-        print(iset)
-    print()
+    # print("Item Sets:")
+    # for iset in canonical_sets:
+    #     print(iset)
+    # print()
 
-    print("Goto:")
-    pprint(gotos)
-    print()
+    # print("Goto:")
+    # pprint(gotos)
+    # print()
 
-    print("Actions:")
-    pprint(actions)
-    print()
+    # print("Actions:")
+    # pprint(actions)
+    # print()
 
     tokens = input().split()
     tokens.append("$")

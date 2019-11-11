@@ -1,5 +1,108 @@
 from grammar import *
 
+
+class LR0_Parser():
+    def __init__(self, g: Grammar):
+        self.g = g
+        self.canonical_sets = construct_canonical_sets(g)
+        self.check_conflicts()
+        self.gotos = construct_goto(g, self.canonical_sets)
+        self.actions = construct_actions(g, self.canonical_sets)
+
+    def check_conflicts(self):
+        for iset in self.canonical_sets:
+            reduces = len([item for item in iset.items if item.dotAtEnd])
+            shifts = len(set([item.next_sym for item in iset.items]))
+            if reduces > 1:
+                raise RuntimeError("Reduce-Reduce Conflict in %s" % iset)
+            elif reduces == 1 and shifts > 0:
+                raise RuntimeError("Shift-Reduce Conflict in %s" % iset)
+
+    def parse(self, tokens, debug=False):
+        tokens.append(Symbol("$"))
+        dot = 0
+        symbol_stack = []
+        state_stack = [0]
+        while len(state_stack) > 0:
+            state = state_stack[-1]
+            next_sym = next_sym = tokens[dot]
+            if debug:
+                print(" ".join(str(x)
+                    for x in symbol_stack + [Symbol(".")] + tokens[dot:-1]))
+                if (state, next_sym) in self.actions or (
+                        state, next_sym) in self.gotos:
+                    action = self.actions[(state, next_sym)]
+                if debug:
+                    print(" ".join(str(x) for x in action))
+                if action[0] == "accept":
+                    state_stack.pop()  # remove 1
+                    state_stack.pop()  # remove 0
+                elif action[0] == "shift":
+                    symbol_stack.append(next_sym)
+                    state = action[1]
+                    state_stack.append(state)
+                    dot += 1
+                    next_sym = tokens[dot]
+                elif action[0] == "reduce":
+                    prod_num = action[1]
+                    prod = self.g.productionsList[prod_num]
+                    next_sym = Symbol(prod.sym.s)
+                    next_sym.children = []
+                    remove_syms = prod.prod[:]
+                    while len(remove_syms) > 0:
+                        assert symbol_stack[-1] == remove_syms[-1]
+                        next_sym.children.append(symbol_stack[-1])
+                        symbol_stack.pop()
+                        remove_syms.pop()
+                        state_stack.pop()
+                    next_sym.children = list(reversed(next_sym\
+                            .children))
+                    state = state_stack[-1]
+                    assert (state, next_sym) in self.gotos
+                    state = self.gotos[(state, next_sym)]
+                    state_stack.append(state)
+                    symbol_stack.append(next_sym)
+            else:
+                raise RuntimeError("Syntax error at input position\
+                        : %d" % dot)
+        return symbol_stack[0]
+
+    def print_table(self):
+        """Prints out the parse tables"""
+        N = 60
+        def p(x = "\n"):
+            print(x, end="")
+        p("-"*N)
+        p()
+        p("Sym\t")
+        for c in self.g.terminals:
+            p(str(c).ljust(3))
+        p("\t|\t")
+        for c in self.g.nonTerminals:
+            p(str(c).ljust(3))
+        p()
+        p("-"*N)
+        p()
+        for i in range(len(self.canonical_sets)):
+            p(str(i)+"\t")
+            for c in self.g.terminals:
+                if (i, c) in self.actions:
+                    s = self.actions[(i, c)]
+                    p(str(s[0][0]+str(s[1])).ljust(3))
+                else:
+                    p("-  ")
+            p("\t|\t")
+            for c in self.g.nonTerminals:
+                if (i, c) in self.gotos:
+                    s = self.gotos[(i, c)]
+                    p(str(s).ljust(3))
+                else:
+                    p("-  ")
+            p()
+        p("-"*N)
+        p()
+
+
 class LR0_Item():
     """LR0_Item: Production with a dot somewhere"""
 
@@ -90,7 +193,8 @@ def construct_canonical_sets(g: Grammar):
             for sym in applicable_symbols:
                 iset_new = apply_symbol(iset, sym)
                 if (len(iset_new.items) > 0 and
-                        iset_new not in canonical_item_sets + freshly_added):
+                        iset_new not in
+                        canonical_item_sets + freshly_added):
                     freshly_added += [iset_new]
         new_sets = freshly_added
     for i, iset in enumerate(canonical_item_sets):
@@ -115,7 +219,7 @@ def construct_actions(g: Grammar, canonical_sets):
         for item in canonical_sets[i].items:
             if item.dotAtEnd:
                 if item.p.num == 0:
-                    actions[(i, Symbol("$"))] = ("accept",)
+                    actions[(i, Symbol("$"))] = ("accept", 0)
                 else:
                     for sym in g.terminals:
                         actions[(i, sym)] = ("reduce", item.p.num)
@@ -128,58 +232,3 @@ def construct_actions(g: Grammar, canonical_sets):
                     actions[(i, sym)] = ("shift", j)
     return actions
 
-def parse(tokens, gotos, actions, g: Grammar):
-    dot = 0
-    symbol_stack = []
-    state_stack = [0]
-    while len(state_stack) > 0:
-        state = state_stack[-1]
-        next_sym = next_sym = tokens[dot]
-        print(" ".join(str(x)
-                       for x in symbol_stack + [Symbol(".")] + tokens[dot:-1]))
-        if (state, next_sym) in actions or (state, next_sym) in gotos:
-            action = actions[(state, next_sym)]
-            print(" ".join(str(x) for x in action))
-            if action[0] == "accept":
-                state_stack.pop() # remove 1
-                state_stack.pop() # remove 0
-            elif action[0] == "shift":
-                symbol_stack.append(next_sym)
-                state = action[1]
-                state_stack.append(state)
-                dot += 1
-                next_sym = tokens[dot]
-            elif action[0] == "reduce":
-                prod_num = action[1]
-                prod = g.productionsList[prod_num]
-                next_sym = Symbol(prod.sym.s)
-                next_sym.children = []
-                remove_syms = prod.prod[:]
-                while len(remove_syms) > 0:
-                    assert symbol_stack[-1] == remove_syms[-1]
-                    next_sym.children.append(symbol_stack[-1])
-                    symbol_stack.pop()
-                    remove_syms.pop()
-                    state_stack.pop()
-                next_sym.children = list(reversed(next_sym.children))
-                state = state_stack[-1]
-                assert (state, next_sym) in gotos
-                state = gotos[(state, next_sym)]
-                state_stack.append(state)
-                symbol_stack.append(next_sym)
-        else:
-            raise RuntimeError("Syntax error at input position: %d" % dot)
-    return symbol_stack[0]
-
-def print_tree(p, d = 0):
-    """Prints out the (concrete) parse tree in graphviz dot format"""
-    if d == 0:
-        print("digraph G {")
-    if len(p.children) > 0:
-        for ch in p.children:
-            print(f"\t{p.rand} [label=\"{p.s}\"];")
-            print(f"\t{ch.rand} [label=\"{ch.s}\"];")
-            print(f"\t{p.rand} -> {ch.rand};")
-            print_tree(ch, d+1)
-    if d == 0:
-        print("}")

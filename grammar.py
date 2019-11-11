@@ -59,7 +59,9 @@ class Grammar():
 
     def loadFromFile(self, filename):
         lines = open(filename).readlines()
-        self.productionsList = [Production(f"Start := {self.startSymbol}", 0)]
+        # to add comments in the grammar
+        lines = [l for l in lines if not l.startswith("#")]
+        self.productionsList = [Production(f"Start := {self.startSymbol} $", 0)]
         self.productionsList += [Production(l, i + 1)
                                  for i, l in enumerate(lines)]
         for p in self.productionsList:
@@ -76,9 +78,54 @@ class Grammar():
                     self.nonTerminals.append(s)
         self.terminals.append(Symbol("$"))
 
+    def first(self, sym: Symbol):
+        first = set()
+        if sym.isTerminal:
+            return set([sym])
+        for p in self.productionsList:
+            if sym == p.sym:
+                if p.prod[0] != sym:
+                    first.update(self.first(p.prod[0]))
+        return first
+
+    def follow(self, sym: Symbol):
+        follow = set()
+        following_syms = set()
+        for p in self.productionsList:
+            for i in range(len(p.prod)):
+                if p.prod[i] == sym:
+                    j = 1
+                    while i+j < len(p.prod):
+                        fst = self.first(p.prod[i+j])
+                        for s in fst:
+                            if s.isTerminal:
+                                follow.add(s)
+                            if s.isNonTerminal:
+                                fst = self.first(s)
+                                follow.update(fst)
+                        if Symbol("eps") not in fst:
+                            break
+                        j += 1
+        return follow
+
     def __repr__(self):
         ans = f"<Grammar G ({self.startSymbol})>\n"
         for s in self.productionsMap:
             ans += f"\t{s} : " + \
-                " | ".join(f"{p}" for p in self.productionsMap[s]) + "\n"
+                " | ".join(f"{p}" for p in self.productionsMap[s]) + \
+                "\n"
         return ans
+
+
+def print_tree(p, d=0):
+    """Prints out the (concrete) parse tree in graphviz dot format"""
+    if d == 0:
+        print("digraph G {")
+    if len(p.children) > 0:
+        for ch in p.children:
+            print(f"\t{p.rand} [label=\"{p.s}\"];")
+            print(f"\t{ch.rand} [label=\"{ch.s}\"];")
+            print(f"\t{p.rand} -> {ch.rand};")
+            print_tree(ch, d + 1)
+    if d == 0:
+        print("}")

@@ -1,6 +1,5 @@
-E := E + T
-E := T
-T := T * F
-T := F
-F := ( E )
-F := id
+# E := E + T
+# E := T
+# T := a
+# T := b
+E := a
